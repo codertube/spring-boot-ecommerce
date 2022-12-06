@@ -1,24 +1,26 @@
 package com.backend.ecommerce.config;
-/*
-import java.io.IOException;
 
-import com.backend.ecommerce.batch.ProductReader;
-import com.backend.ecommerce.batch.ProductWriter;
+import com.backend.ecommerce.batch.BlankLineRecordSeparatorPolicy;
+import com.backend.ecommerce.batch.JobCompletionNotificationListener;
+import com.backend.ecommerce.batch.ProductItemProcessor;
 import com.backend.ecommerce.entity.Product;
+import com.backend.ecommerce.repository.ProductRepository;
+
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.item.ItemReader;
-import org.springframework.batch.item.file.MultiResourceItemReader;
+import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.file.FlatFileItemReader;
+import org.springframework.batch.item.file.mapping.BeanWrapperFieldSetMapper;
+import org.springframework.batch.item.file.mapping.DefaultLineMapper;
+import org.springframework.batch.item.file.transform.DelimitedLineTokenizer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
-import org.springframework.core.io.support.ResourcePatternResolver;
+import org.springframework.core.io.ClassPathResource;
 
 @Configuration
 @EnableBatchProcessing
@@ -30,41 +32,58 @@ public class BatchConfig {
     public StepBuilderFactory stepBuilderFactory;
 
     @Autowired
-    ProductReader productReader;
-
-    @Autowired
-    ProductWriter productWriter;
+    public ProductRepository productRepository;
 
     @Bean
-    public Job readCSVFilesJob() {
-        return jobBuilderFactory.get("readCSVFilesJob")
-                .incrementer(new RunIdIncrementer())
-                .flow(createStep()).end().build();
+    public FlatFileItemReader<Product> reader() {
+        FlatFileItemReader<Product> reader = new FlatFileItemReader<>();
+        reader.setResource(new ClassPathResource("/input.csv"));
+        reader.setLinesToSkip(1);
+
+        reader.setLineMapper(new DefaultLineMapper<>() {{
+            setLineTokenizer(new DelimitedLineTokenizer() {{
+                setDelimiter(DELIMITER_COMMA);
+                setNames("name", "price", "quantity", "imageUrl");
+            }});
+
+            setFieldSetMapper(new BeanWrapperFieldSetMapper<>() {{
+                setTargetType(Product.class);
+            }});
+        }});
+        reader.setRecordSeparatorPolicy(new BlankLineRecordSeparatorPolicy());
+        return reader;
     }
 
     @Bean
-    public Step createStep() {
-        return stepBuilderFactory.get("SaleListStep")
-                .<Product, Product>chunk(1)
-                .reader(reader())
-                .writer(productWriter)
+    public ItemWriter<Product> writer() {
+        return products -> {
+            productRepository.saveAll(products);
+        };
+    }
+
+    @Bean
+    public Job importUserJob(JobCompletionNotificationListener listener, Step step1) {
+        return jobBuilderFactory.get("importUserJob")
+                .incrementer(new RunIdIncrementer())
+                .listener(listener)
+                .flow(step1)
+                .end()
                 .build();
     }
 
     @Bean
-    public ItemReader<Product> reader() {
-        Resource[] resources = null;
-        ResourcePatternResolver patternResolver = new PathMatchingResourcePatternResolver();
-        try {
-            resources = patternResolver.getResources("data/input.csv");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        MultiResourceItemReader<Product> reader = new MultiResourceItemReader<>();
-        reader.setResources(resources);
-        reader.setDelegate(productReader);
-        return reader;
+    public Step step1() {
+        return stepBuilderFactory.get("step1")
+                .<Product, Product>chunk(10)
+                .reader(reader())
+                .processor(processor())
+                .writer(writer())
+                .build();
     }
+
+    @Bean
+    public ProductItemProcessor processor() {
+        return new ProductItemProcessor();
+    }
+
 }
-*/

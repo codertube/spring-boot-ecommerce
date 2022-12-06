@@ -1,12 +1,9 @@
 package com.backend.ecommerce.entity;
 
-import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
-
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;
-import java.math.BigDecimal;
 
 @Entity
 @Table(name = "product")
