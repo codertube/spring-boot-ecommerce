@@ -1,6 +1,6 @@
 # Charity Sale App using Spring-Boot
 
-Application is built using Java 17, Spring Boot 2.7, Spring Data JPA, Spring Batch and Postgresql.
+Application is built using Java 17, Spring Boot 2.7, Spring Data JPA, Spring Batch, Docker and Postgresql.
 
 ## Quick start
 
